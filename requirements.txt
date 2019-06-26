@@ -1,0 +1,10 @@
+matplotlib
+numpy
+scipy
+scikit-learn
+neo
+jupyter==1.0.0
+jupyter-client==5.2.2
+jupyter-console==5.2.0
+jupyter-core==4.4.0
+h5py

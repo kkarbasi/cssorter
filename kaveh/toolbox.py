@@ -122,3 +122,6 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
     y = scipy.signal.filtfilt(b, a, data)
     return y
 
+def deg_to_cart(d):
+    return [np.cos(d/180.0 * np.pi), np.sin(d/180.0 * np.pi)]
+

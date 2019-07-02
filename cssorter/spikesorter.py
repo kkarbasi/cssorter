@@ -1,5 +1,5 @@
 """
-Copyright (c) 2018 Laboratory for Computational Motor Control, Johns Hopkins School of Medicine
+Copyright (c) 2019 Laboratory for Computational Motor Control, Johns Hopkins School of Medicine
 
 Author: Kaveh Karbasi <kkarbasi@berkeley.edu>
 """
@@ -11,10 +11,11 @@ import scipy.fftpack
 from scipy.stats import norm
 import time
 from matplotlib import pyplot as plt
-from kaveh.plots import axvlines
 
-class SimpleSpikeSorter:
-    """ Class that detects and sorts simple spikes"""
+class ComplexSpikeSorter:
+    """
+    Class for sorting complex spikes
+    """
     def __init__(self, voltage, dt):
         """
         Object constructor
@@ -32,7 +33,7 @@ class SimpleSpikeSorter:
         self.minibatch_thresh = 50 #s - for spike detection: if signal length more than this, switch to minibatch GMM
         # Complex spike detection parameters:
         self.freq_range = (0, 3000) #Hz
-        self.cs_num_gmm_components = 3 
+        self.cs_num_gmm_components = 5 
         self.cs_cov_type = 'full'
         self.post_cs_pause_time = 0.0055 #s
 
@@ -48,10 +49,10 @@ class SimpleSpikeSorter:
         print('Spike detection time = {}'.format(time.time() - start))
         self._align_spikes()
         print('Align spikes time = {}'.format(time.time() - start))
-        self._cluster_spike_waveforms_by_freq()
+        self._cluster_spike_by_feature()
         print('CS spike detection time = {}'.format(time.time() - start))
-        #self._cs_post_process()
-        #print('CS post process time = {}'.format(time.time() - start))
+        self._cs_post_process()
+        print('CS post process time = {}'.format(time.time() - start))
 
 
     def _pre_process(self):
@@ -265,7 +266,7 @@ class SimpleSpikeSorter:
                     plt.plot(x, gmixt, label = 'Gaussian '+str(i), color = colors[i])
 
                     plt.hist(power_feature.reshape(-1,1),bins=256,density=True, color='gray')
-                    axvlines(plt.gca(), gmm.means_)
+                    plt.eventplot(gmm.means_, linelength=np.max(np.max(power_feature)))
                     plt.show()
         self.cs_indices = cs_indices
     
@@ -322,6 +323,12 @@ class SimpleSpikeSorter:
         """
         return self.cs_indices
 
+    def get_ss_indices(self):
+        """
+        Returns the detected simple spike indices
+        """
+        return np.setdiff1d(self.spike_indices, self.cs_indices)
+
 
     def set_spike_window(self, pre_time, post_time):
         """
@@ -361,14 +368,10 @@ class SimpleSpikeSorter:
             plt.figure(figsize = figsize)
             plt.plot(self.voltage_filtered)
             plt.plot(self.spike_indices, self.voltage_filtered[self.spike_indices], '.r')
-            axvlines(plt.gca(), self.spike_indices + int(np.round(self.post_window/self.dt)), color='g')
-            axvlines(plt.gca(), self.spike_indices - int(np.round(self.pre_window/self.dt)), color='m')
         else:
             plt.figure(figsize = figsize)
             plt.plot(self.voltage)
             plt.plot(self.spike_indices, self.voltage[self.spike_indices], '.r')
-            axvlines(plt.gca(), self.spike_indices + int(np.round(self.post_window/self.dt)), color='g')
-            axvlines(plt.gca(), self.spike_indices - int(np.round(self.pre_window/self.dt)), color='m')
 
     def plot_voltage(self, use_filtered = False, figsize = (21, 5)):
         """
@@ -384,7 +387,19 @@ class SimpleSpikeSorter:
             plt.title('Raw voltage vs Time(s)')
             plt.xlabel('t(s)')
 
-
+    def cluster_detected_cs(self, num_clusters=8, pre_time=0.0005, post_time=0.005):
+        """
+        Clusters the detected complex spikes based on time domain 
+        """
+        pre_index = int(np.round(pre_time/self.dt))
+        post_index = int(np.round(post_time/self.dt))
+        aligned_cs = np.array([self.voltage[i - pre_index : i + post_index] for i in self.cs_indices])
+        gmm = GaussianMixture(num_clusters, covariance_type = 'full').fit(aligned_cs)
+        cluster_labels = gmm.predict(aligned_cs)
+        clusters = []
+        for cn in np.arange(num_clusters):
+            clusters.append(aligned_cs[np.where(cluster_labels == cn)])
+        return clusters, cluster_labels
 
 
 

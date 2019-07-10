@@ -36,7 +36,8 @@ class ComplexSpikeSorter:
         self.cs_num_gmm_components = 5 
         self.cs_cov_type = 'full'
         self.post_cs_pause_time = 0.0055 #s
-
+        self.gmm = GaussianMixture(self.num_gmm_components,
+                covariance_type = 'tied', warm_start=True)
     def run(self):
         start = time.time()
         self._pre_process()
@@ -99,11 +100,12 @@ class ComplexSpikeSorter:
         """
         voltage_signal = self.voltage_filtered[prange]
         signal_unfiltered = self.voltage[prange]
-        gmm = GaussianMixture(self.num_gmm_components,
-                covariance_type = 'tied').fit(voltage_signal.reshape(-1,1))
-        cluster_labels = gmm.predict(voltage_signal.reshape(-1,1))
+        #gmm = GaussianMixture(self.num_gmm_components,
+        #        covariance_type = 'tied').fit(voltage_signal.reshape(-1,1))
+        self.gmm.fit(voltage_signal.reshape(-1,1))
+        cluster_labels = self.gmm.predict(voltage_signal.reshape(-1,1))
         cluster_labels = cluster_labels.reshape(voltage_signal.shape)
-        spikes_cluster = np.argmax(gmm.means_)
+        spikes_cluster = np.argmax(self.gmm.means_)
         all_spike_indices = np.squeeze(np.where(cluster_labels == spikes_cluster))
         # Find peaks of each spike
         peak_times,_ = scipy.signal.find_peaks(voltage_signal[all_spike_indices])

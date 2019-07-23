@@ -26,9 +26,9 @@ class ComplexSpikeSorter:
         self.low_pass_filter_cutoff = 10000 #Hz
         self.high_pass_filter_cutoff = 1000 #Hz
         self.filter_order = 2
-        self.num_gmm_components = 6
+        self.num_gmm_components = 5
         self.gmm_cov_type = 'tied'
-        self.pre_window = 0.0005 #s
+        self.pre_window = 0.0002 #s
         self.post_window = 0.005 #s
         self.minibatch_thresh = 50 #s - for spike detection: if signal length more than this, switch to minibatch GMM
         # Complex spike detection parameters:
@@ -37,7 +37,7 @@ class ComplexSpikeSorter:
         self.cs_cov_type = 'full'
         self.post_cs_pause_time = 0.0055 #s
         self.gmm = GaussianMixture(self.num_gmm_components,
-                covariance_type = 'tied', warm_start=True)
+                covariance_type = self.gmm_cov_type, warm_start=True)
     def run(self):
         start = time.time()
         self._pre_process()
@@ -62,14 +62,16 @@ class ComplexSpikeSorter:
         Apply zero-phase linear filter
         """
         self.voltage_filtered = np.copy(self.voltage)
-        [b, a] = scipy.signal.filter_design.butter(self.filter_order,
-                        [2 * self.dt * self.high_pass_filter_cutoff, 2 * self.dt * self.low_pass_filter_cutoff],
-                                               btype='bandpass')
-        self.voltage_filtered = scipy.signal.lfilter(b, a, self.voltage_filtered)  # Filter forwards
-        self.voltage_filtered = np.flipud(self.voltage_filtered)
-        self.voltage_filtered = scipy.signal.lfilter(b, a, self.voltage_filtered)  # Filter reverse
-        self.voltage_filtered = np.flipud(self.voltage_filtered)
+        #[b, a] = scipy.signal.filter_design.butter(self.filter_order,
+        #                [2 * self.dt * self.high_pass_filter_cutoff, 2 * self.dt * self.low_pass_filter_cutoff],
+        #                                       btype='bandpass')
+        #self.voltage_filtered = scipy.signal.lfilter(b, a, self.voltage_filtered)  # Filter forwards
+        #self.voltage_filtered = np.flipud(self.voltage_filtered)
+        #self.voltage_filtered = scipy.signal.lfilter(b, a, self.voltage_filtered)  # Filter reverse
+        #self.voltage_filtered = np.flipud(self.voltage_filtered)
         self.voltage_filtered = scipy.signal.savgol_filter(self.voltage_filtered, 5, 2, 1, self.dt)
+        #self.voltage_filt_derivative = scipy.signal.savgol_filter(self.voltage_filtered, 5, 2, 1, self.dt) 
+        #self.voltage_raw_derivative = scipy.signal.savgol_filter(self.voltage, 5, 2, 1, self.dt) 
 
     def _detect_spikes(self):
         """
@@ -77,11 +79,11 @@ class ComplexSpikeSorter:
         Second edit: changed the detected index to be the peak of the raw signal 
         in order to help with future alignment to the peak of the spike waveforms.
         """
-        gmm = GaussianMixture(self.num_gmm_components,
-                covariance_type = 'tied').fit(self.voltage_filtered.reshape(-1,1))
-        cluster_labels = gmm.predict(self.voltage_filtered.reshape(-1,1))
+        self.gmm = GaussianMixture(self.num_gmm_components,
+                covariance_type = self.gmm_cov_type).fit(self.voltage_filtered.reshape(-1,1))
+        cluster_labels = self.gmm.predict(self.voltage_filtered.reshape(-1,1))
         cluster_labels = cluster_labels.reshape(self.voltage_filtered.shape)
-        spikes_cluster = np.argmax(gmm.means_)
+        spikes_cluster = np.argmax(self.gmm.means_)
         all_spike_indices = np.squeeze(np.where(cluster_labels == spikes_cluster))
         # Find peaks of each spike
         peak_times,_ = scipy.signal.find_peaks(self.voltage_filtered[all_spike_indices])
@@ -183,6 +185,7 @@ class ComplexSpikeSorter:
         Use the number of components that captures at least captured_variance of the spike waveforms
         """
         return 0
+
     def _extract_features(self):
         from sklearn.decomposition import PCA
         from sklearn.preprocessing import normalize

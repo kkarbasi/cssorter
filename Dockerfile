@@ -7,6 +7,8 @@ RUN \
 
 COPY requirements.txt ./
 RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install jupyterthemes
+RUN jt -t grade3 -cellw 90%
 COPY . .
 EXPOSE 8888
 CMD ["jupyter", "notebook", "--port=8888", "--no-browser", "--ip=0.0.0.0", "--allow-root"]

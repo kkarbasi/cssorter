@@ -125,3 +125,49 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
 def deg_to_cart(d):
     return [np.cos(d/180.0 * np.pi), np.sin(d/180.0 * np.pi)]
 
+from scipy.optimize import minimize
+from scipy.interpolate import interp1d
+from scipy.ndimage.interpolation import shift
+
+def chisqr_align(reference, target, roi, order=1, init=0.1, bound=1):
+    '''
+    Align a target signal to a reference signal within a region of interest (ROI)
+    by minimizing the chi-squared between the two signals. Depending on the shape
+    of your signals providing a highly constrained prior is necessary when using a
+    gradient based optimization technique in order to avoid local solutions.
+    Args:
+        reference (1d array/list): signal that won't be shifted
+        target (1d array/list): signal to be shifted to reference
+        roi (tuple): region of interest to compute chi-squared
+        order (int): order of spline interpolation for shifting target signal
+        init (int):  initial guess to offset between the two signals
+        bound (int): symmetric bounds for constraining the shift search around initial guess
+    Returns:
+        shift (float): offset between target and reference signal 
+    
+    Todo:
+        * include uncertainties on spectra
+        * update chi-squared metric for uncertainties
+        * include loss function on chi-sqr
+    '''
+    # convert to int to avoid indexing issues
+    ROI = slice(int(roi[0]), int(roi[1]), 1)
+
+    # normalize ref within ROI
+    reference = reference/np.mean(reference[ROI])
+
+    # define objective function: returns the array to be minimized
+    def fcn2min(x):
+        shifted = shift(target,x,order=order)
+        shifted = shifted/np.mean(shifted[ROI])
+        return np.sum( ((reference - shifted)**2 )[ROI] )
+
+    # set up bounds for pos/neg shifts
+    minb = min( [(init-bound),(init+bound)] )
+    maxb = max( [(init-bound),(init+bound)] )
+
+    # minimize chi-squared between the two signals 
+    result = minimize(fcn2min,init,method='L-BFGS-B',bounds=[ (minb,maxb) ])
+
+    return result.x[0]
+

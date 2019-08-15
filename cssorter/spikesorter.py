@@ -37,7 +37,8 @@ class ComplexSpikeSorter:
         self.cs_cov_type = 'full'
         self.post_cs_pause_time = 0.0055 #s
 
-    def run(self, use_filtered=True, remove_overlap=True):
+    def run(self, use_filtered=True, remove_overlap=True,
+            spike_detection_dir='min', align_spikes_to='min'):
         self._init_gmm()
         start = time.time()
         self._pre_process()
@@ -46,13 +47,15 @@ class ComplexSpikeSorter:
         if delta >= self.signal_size:
             self._detect_spikes()
         else:
-            self._detect_spikes_minibatch(use_filtered)
+            self._detect_spikes_minibatch(use_filtered, select_clust=spike_detection_dir, align_to=align_spikes_to)
         print('Spike detection time = {}'.format(time.time() - start))
         self._align_spikes(remove_align_overlaps=remove_overlap)
         print('Align spikes time = {}'.format(time.time() - start))
-        self._cluster_spike_by_feature()
+        self._detect_cs_minibatch(remove_overlaps = remove_overlap)
         print('CS spike detection time = {}'.format(time.time() - start))
-        self._cs_post_process()
+        self.cs_indices = self._remove_overlapping_complex_spikes()
+        self._realign_complex_spikes()
+        #self._cs_post_process()
         print('CS post process time = {}'.format(time.time() - start))
 
     
@@ -142,7 +145,6 @@ class ComplexSpikeSorter:
         Preliminary spike detection using a Gaussian Mixture Model, using only a range of raw signal
         """
         #voltage_signal = self.voltage_filtered[prange]
-        print('Using voltage, not derivative')
         voltage_signal = self.voltage[prange]
         signal_unfiltered = self.voltage[prange]
         #gmm = GaussianMixture(self.num_gmm_components,
@@ -185,7 +187,8 @@ class ComplexSpikeSorter:
         Loops through the entire voltage signal and detects spikes
         The loop is on each slices of the signal with size minibatch_thresh
         """
-        print('Using minibatch spike detection, batch size = {}s'.format(self.minibatch_thresh))
+        print('Using minibatch spike detection, batch size = {}s, using filter (derivative) is {}'.format(self.minibatch_thresh, use_filtered))
+        print('Usinf spikes'' {} for detection. Aligning them to their {}. '.format(select_clust, align_to))         
         delta = int(self.minibatch_thresh/self.dt)
         self.spike_indices = np.array([], dtype='int64')
         for i in np.arange(0, self.voltage_filtered.size - int(10/self.dt), delta):
@@ -240,6 +243,7 @@ class ComplexSpikeSorter:
         due to _remove_overlapping_complex_spikes function. Here we try to realign them
         """
         realigned_indices = []
+        Fs = 1.0/self.dt
         for i in self.cs_indices:
             realigned_indices.append(np.argmax(self.voltage[i - int(0.0019*Fs) : i + int(0.002*Fs)])+i)
         self.cs_indices = np.array(realigned_indices)
@@ -377,10 +381,10 @@ class ComplexSpikeSorter:
                     plt.show()
         self.cs_indices = cs_indices
     
-    def _detect_cs(self):
+    def _detect_cs(self, remove_overlap):
         [_,powers,_] = self._find_max_powers()
         features = self._pca_transform(powers, 9)
-        self.cs_indices = self._cluster_spike_by_feature(features)
+        self.cs_indices = self._cluster_spike_by_feature(features, remove_overlaps=remove_overlap)
         
 
     def _cluster_spike_by_feature(self, features, slice_indices = np.array([]), remove_overlaps=False):
@@ -400,7 +404,8 @@ class ComplexSpikeSorter:
 
   
     def _detect_cs_minibatch(self, remove_overlaps=False, batch_size=240):
-
+        
+        print('Clustering complex spikes...')
         slice_indices = self._slice_spike_indices(slice_length=batch_size)
         [_,powers,_] = self._find_max_powers()
         cs_indices = []
@@ -443,6 +448,8 @@ class ComplexSpikeSorter:
             if slice_indices[-1].size <= 120/self.dt:
                 slice_indices[-2] = np.concatenate((slice_indices[-2], slice_indices[-1]))
                 del slice_indices[-1]
+        else:
+            slice_indices = [np.arange(0, self.spike_indices.size)]
         return slice_indices
 
 

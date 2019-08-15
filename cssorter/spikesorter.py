@@ -54,7 +54,7 @@ class ComplexSpikeSorter:
         self._detect_cs_minibatch(remove_overlaps = remove_overlap)
         print('CS spike detection time = {}'.format(time.time() - start))
         self.cs_indices = self._remove_overlapping_complex_spikes()
-        self._realign_complex_spikes()
+        #self._realign_complex_spikes()
         #self._cs_post_process()
         print('CS post process time = {}'.format(time.time() - start))
 

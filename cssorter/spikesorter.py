@@ -60,6 +60,8 @@ class ComplexSpikeSorter:
         self.gmm = GaussianMixture(self.num_gmm_components,
                 covariance_type = self.gmm_cov_type, warm_start=True)
         
+        self.cs_gmm = GaussianMixture(self.cs_num_gmm_components,
+                covariance_type = self.cs_cov_type, random_state=0, warm_start=True)
     def _pre_process(self):
         """
         Pre-processing on the input voltage signal:
@@ -283,16 +285,20 @@ class ComplexSpikeSorter:
         return 0
 
     def _extract_features(self):
-        from sklearn.decomposition import PCA
-        from sklearn.preprocessing import normalize
         [_,powers,_] = self._find_max_powers()
-        
-        pca = PCA(n_components = 9)
-        pca.fit(powers)
-        freq_pca = pca.transform(powers)
         #freq_pca = normalize(time_pca)
         #print('time pca ', pca.explained_variance_ratio_)
-        return freq_pca
+        return self._pca_transform(powers, 9)
+
+    def _pca_transform(self, aligned_input, num_components=9):
+        
+        from sklearn.decomposition import PCA
+        from sklearn.preprocessing import normalize
+        
+        pca = PCA(n_components = num_components)
+        pca.fit(aligned_input)
+        transformed = pca.transform(aligned_input)
+        return transformed
 
     def _find_max_powers(self):
         """
@@ -371,21 +377,38 @@ class ComplexSpikeSorter:
                     plt.show()
         self.cs_indices = cs_indices
     
-    def _cluster_spike_by_feature(self, remove_overlaps=True):
+    def _detect_cs(self):
+        [_,powers,_] = self._find_max_powers()
+        features = self._pca_transform(powers, 9)
+        self.cs_indices = self._cluster_spike_by_feature(features)
+        
+
+    def _cluster_spike_by_feature(self, features, slice_indices = np.array([]), remove_overlaps=False):
         """
         Clusters the found spikes into simple and complex, using a gmm_nc component GMM
         It uses the maximum power in the lower region of the frequency spectrum of the 
         spike waveforms
         """
-        features = self._extract_features()
+        self.cs_gmm.fit(features)
+        cluster_labels = self.cs_gmm.predict(features)
+        if slice_indices.size == 0:
+            cs_indices = self.get_spike_indices(remove_overlaps)[cluster_labels == np.argmax(np.mean(self.cs_gmm.means_, axis=1))]
+        else:
+            spike_indices = self.get_spike_indices(remove_overlaps)[slice_indices]
+            cs_indices = spike_indices[cluster_labels == np.argmax(np.mean(self.cs_gmm.means_, axis=1))]
+        return cs_indices
 
-        gmm = GaussianMixture(self.cs_num_gmm_components, covariance_type = self.cs_cov_type, random_state=0).fit(features)
-        cluster_labels = gmm.predict(features)
-        #cluster_labels = cluster_labels.reshape(features.shape)
-        
-        cs_indices = self.get_spike_indices(remove_overlaps)[cluster_labels == np.argmax(np.mean(gmm.means_, axis=1))]
-        self.cs_indices = cs_indices
-   
+  
+    def _detect_cs_minibatch(self, remove_overlaps=False, batch_size=240):
+
+        slice_indices = self._slice_spike_indices(slice_length=batch_size)
+        [_,powers,_] = self._find_max_powers()
+        cs_indices = []
+        for sl in slice_indices:
+            curr_powers = powers[sl,:]
+            cs_indices.append(self._cluster_spike_by_feature(curr_powers, sl))
+        self.cs_indices = np.hstack(cs_indices)
+
     def _cs_post_process(self):
         """
         Post processing for complex spikes.
@@ -403,6 +426,25 @@ class ComplexSpikeSorter:
         mask = np.ones(self.cs_indices.shape, dtype = bool)
         mask[to_delete] = False
         self.cs_indices = self.cs_indices[mask]
+
+    def _slice_spike_indices(self, slice_length = 240):
+        """
+        Slicing the detected spike indices into slice_length (s) chunks and return a list
+        of the indices for each chunk. Used for minibatch complex spike detection.
+        """
+        delta = int(slice_length/self.dt)
+        if self.signal_size > (slice_length + 120)/self.dt:
+            print('Splitting detected spikes for CS clustering ...')
+            slice_indices = []    
+            countall = 0
+            for i in np.arange(0, self.signal_size, delta):
+                slice_indices.append(np.where(np.logical_and(self.spike_indices >= i ,  self.spike_indices < i + delta))[0])
+            # If the last chunk is less than 2 minutes, merge it with the penultimate chunk:
+            if slice_indices[-1].size <= 120/self.dt:
+                slice_indices[-2] = np.concatenate((slice_indices[-2], slice_indices[-1]))
+                del slice_indices[-1]
+        return slice_indices
+
 
     def recluster_complex_spikes(self, freq_range=None, gmm_nc=None, cov_type=None, plot_hist = False):
         """

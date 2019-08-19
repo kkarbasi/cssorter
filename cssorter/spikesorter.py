@@ -110,6 +110,8 @@ class ComplexSpikeSorter:
         """
         Preliminary spike detection using a Gaussian Mixture Model, using only a range of filtered signal
         """
+        peak_search_window_pre = 0.0008
+        peak_search_window_post = 0.001
         voltage_signal = self.voltage_filtered[prange]
         signal_unfiltered = self.voltage[prange]
         #gmm = GaussianMixture(self.num_gmm_components,
@@ -124,14 +126,14 @@ class ComplexSpikeSorter:
         spike_indices = all_spike_indices[peak_times]
         first_index = spike_indices[0]
         if align_to is 'max':
-            spike_peaks = np.array([np.argmax(signal_unfiltered[max(0, si - int(0.001/self.dt)) : si + int(0.001/self.dt)]) for si in spike_indices])
-            spike_indices = spike_indices + spike_peaks - int(0.001/self.dt)
+            spike_peaks = np.array([np.argmax(signal_unfiltered[max(0, si - int(peak_search_window_pre/self.dt)) : si + int(peak_search_window_post/self.dt)]) for si in spike_indices])
+            spike_indices = spike_indices + spike_peaks - int(peak_search_window_pre/self.dt)
             # in case the first window is less then the 0.0005/dt
             if spike_indices[0] < 0:
                 spike_indices[0] = spike_peaks[0]
         elif align_to is 'min':
-            spike_peaks = np.array([np.argmin(signal_unfiltered[max(0, si - int(0.001/self.dt)) : si + int(0.001/self.dt)]) for si in spike_indices])
-            spike_indices = spike_indices + spike_peaks - int(0.001/self.dt)
+            spike_peaks = np.array([np.argmin(signal_unfiltered[max(0, si - int(peak_search_window_pre/self.dt)) : si + int(peak_search_window_post/self.dt)]) for si in spike_indices])
+            spike_indices = spike_indices + spike_peaks - int(peak_search_window_pre/self.dt)
             # in case the first window is less then the 0.0005/dt
             if spike_indices[0] < 0:
                 spike_indices[0] = spike_peaks[0]
@@ -145,8 +147,8 @@ class ComplexSpikeSorter:
         """
         Preliminary spike detection using a Gaussian Mixture Model, using only a range of raw signal
         """
-        align_pre = 0.0008
-        align_post = 0.001
+        peak_search_window_pre = 0.0008
+        peak_search_window_post = 0.001
         #voltage_signal = self.voltage_filtered[prange]
         voltage_signal = self.voltage[prange]
         signal_unfiltered = self.voltage[prange]
@@ -169,14 +171,14 @@ class ComplexSpikeSorter:
             ValueError('select_clust argument should be min or max')
         
         if align_to is 'max':
-            spike_peaks = np.array([np.argmax(signal_unfiltered[max(0, si - int(align_pre/self.dt)) : si + int(align_post/self.dt)]) for si in spike_indices])
-            spike_indices = spike_indices + spike_peaks - int(align_pre/self.dt)
+            spike_peaks = np.array([np.argmax(signal_unfiltered[max(0, si - int(peak_search_window_pre/self.dt)) : si + int(peak_search_window_post/self.dt)]) for si in spike_indices])
+            spike_indices = spike_indices + spike_peaks - int(peak_search_window_pre/self.dt)
             # in case the first window is less then the 0.0005/dt
             if spike_indices[0] < 0:
                 spike_indices[0] = spike_peaks[0]
         elif align_to is 'min':
-            spike_peaks = np.array([np.argmin(signal_unfiltered[max(0, si - int(align_pre/self.dt)) : si + int(align_post/self.dt)]) for si in spike_indices])
-            spike_indices = spike_indices + spike_peaks - int(align_pre/self.dt)
+            spike_peaks = np.array([np.argmin(signal_unfiltered[max(0, si - int(peak_search_window_pre/self.dt)) : si + int(peak_search_window_post/self.dt)]) for si in spike_indices])
+            spike_indices = spike_indices + spike_peaks - int(peak_search_window_pre/self.dt)
             # in case the first window is less then the 0.0005/dt
             if spike_indices[0] < 0:
                 spike_indices[0] = spike_peaks[0]

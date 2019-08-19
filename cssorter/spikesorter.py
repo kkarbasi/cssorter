@@ -36,6 +36,7 @@ class ComplexSpikeSorter:
         self.cs_num_gmm_components = 5 
         self.cs_cov_type = 'full'
         self.post_cs_pause_time = 0.0055 #s
+        self.num_pca_components = 9
 
     def run(self, use_filtered=True, remove_overlap=True,
             spike_detection_dir='min', align_spikes_to='min'):
@@ -123,14 +124,14 @@ class ComplexSpikeSorter:
         spike_indices = all_spike_indices[peak_times]
         first_index = spike_indices[0]
         if align_to is 'max':
-            spike_peaks = np.array([np.argmax(signal_unfiltered[max(0, si - int(0.0015/self.dt)) : si + int(0.002/self.dt)]) for si in spike_indices])
-            spike_indices = spike_indices + spike_peaks - int(0.0015/self.dt)
+            spike_peaks = np.array([np.argmax(signal_unfiltered[max(0, si - int(0.001/self.dt)) : si + int(0.001/self.dt)]) for si in spike_indices])
+            spike_indices = spike_indices + spike_peaks - int(0.001/self.dt)
             # in case the first window is less then the 0.0005/dt
             if spike_indices[0] < 0:
                 spike_indices[0] = spike_peaks[0]
         elif align_to is 'min':
-            spike_peaks = np.array([np.argmin(signal_unfiltered[max(0, si - int(0.0015/self.dt)) : si + int(0.002/self.dt)]) for si in spike_indices])
-            spike_indices = spike_indices + spike_peaks - int(0.0015/self.dt)
+            spike_peaks = np.array([np.argmin(signal_unfiltered[max(0, si - int(0.001/self.dt)) : si + int(0.001/self.dt)]) for si in spike_indices])
+            spike_indices = spike_indices + spike_peaks - int(0.001/self.dt)
             # in case the first window is less then the 0.0005/dt
             if spike_indices[0] < 0:
                 spike_indices[0] = spike_peaks[0]
@@ -144,6 +145,8 @@ class ComplexSpikeSorter:
         """
         Preliminary spike detection using a Gaussian Mixture Model, using only a range of raw signal
         """
+        align_pre = 0.0008
+        align_post = 0.001
         #voltage_signal = self.voltage_filtered[prange]
         voltage_signal = self.voltage[prange]
         signal_unfiltered = self.voltage[prange]
@@ -166,14 +169,14 @@ class ComplexSpikeSorter:
             ValueError('select_clust argument should be min or max')
         
         if align_to is 'max':
-            spike_peaks = np.array([np.argmax(signal_unfiltered[max(0, si - int(0.0015/self.dt)) : si + int(0.002/self.dt)]) for si in spike_indices])
-            spike_indices = spike_indices + spike_peaks - int(0.0015/self.dt)
+            spike_peaks = np.array([np.argmax(signal_unfiltered[max(0, si - int(align_pre/self.dt)) : si + int(align_post/self.dt)]) for si in spike_indices])
+            spike_indices = spike_indices + spike_peaks - int(align_pre/self.dt)
             # in case the first window is less then the 0.0005/dt
             if spike_indices[0] < 0:
                 spike_indices[0] = spike_peaks[0]
         elif align_to is 'min':
-            spike_peaks = np.array([np.argmin(signal_unfiltered[max(0, si - int(0.0015/self.dt)) : si + int(0.002/self.dt)]) for si in spike_indices])
-            spike_indices = spike_indices + spike_peaks - int(0.0015/self.dt)
+            spike_peaks = np.array([np.argmin(signal_unfiltered[max(0, si - int(align_pre/self.dt)) : si + int(align_post/self.dt)]) for si in spike_indices])
+            spike_indices = spike_indices + spike_peaks - int(align_pre/self.dt)
             # in case the first window is less then the 0.0005/dt
             if spike_indices[0] < 0:
                 spike_indices[0] = spike_peaks[0]
@@ -234,9 +237,9 @@ class ComplexSpikeSorter:
         """
         print('Merging overlapping CS waveforms')
         csiss = np.diff(self.cs_indices)
-        return np.delete(self.cs_indices, np.where(csiss < 0.010/self.dt))
+        return np.delete(self.cs_indices, np.where(csiss < 0.0025/self.dt)[0] + 1)
     
-    def _realign_complex_spikes(self):
+    def _realign_complex_spikes(self, pre = 0.0019, post = 0.002):
         """
         Here we realign the detected complex spikes to their spike peak.
         Sometimes some of the detected spike indices might become misaligned
@@ -245,7 +248,7 @@ class ComplexSpikeSorter:
         realigned_indices = []
         Fs = 1.0/self.dt
         for i in self.cs_indices:
-            realigned_indices.append(np.argmax(self.voltage[i - int(0.0019*Fs) : i + int(0.002*Fs)])+i)
+            realigned_indices.append(np.argmax(self.voltage[i - int(pre*Fs) : i + int(post*Fs)])+i)
         self.cs_indices = np.array(realigned_indices)
             
 
@@ -292,7 +295,7 @@ class ComplexSpikeSorter:
         [_,powers,_] = self._find_max_powers()
         #freq_pca = normalize(time_pca)
         #print('time pca ', pca.explained_variance_ratio_)
-        return self._pca_transform(powers, 9)
+        return self._pca_transform(powers, self.num_pca_components)
 
     def _pca_transform(self, aligned_input, num_components=9):
         
@@ -383,7 +386,7 @@ class ComplexSpikeSorter:
     
     def _detect_cs(self, remove_overlap):
         [_,powers,_] = self._find_max_powers()
-        features = self._pca_transform(powers, 9)
+        features = self._pca_transform(powers, self.num_pca_components)
         self.cs_indices = self._cluster_spike_by_feature(features, remove_overlaps=remove_overlap)
         
 

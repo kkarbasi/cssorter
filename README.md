@@ -15,6 +15,8 @@ You can redily use this package from it's docker image. To download and run the 
 After running the above command, you can access a Jupyter notebook with sample run code from your browser at:
 `http://127.0.0.1:8888`
 
+The `/run/dmount` path inside the Docker container with be mounted to `/path/to/local/dir` on your local machine
+
 For more information on using docker containers see [here](https://docs.docker.com/)
 
 ### Using pip command:

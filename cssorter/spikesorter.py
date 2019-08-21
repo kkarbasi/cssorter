@@ -36,29 +36,36 @@ class ComplexSpikeSorter:
         self.cs_num_gmm_components = 5 
         self.cs_cov_type = 'full'
         self.post_cs_pause_time = 0.0055 #s
-        self.num_pca_components = 9
+        self.num_pca_components = 0.9 # If less than one, this would be the percent of explained variance 
 
-    def run(self, use_filtered=True, remove_overlap=True,
+    def run_spike_detection(self, use_filtered=True, remove_overlap=True,
             spike_detection_dir='min', align_spikes_to='min'):
         self._init_gmm()
-        start = time.time()
         self._pre_process()
-        print('Pre-process time = {}'.format(time.time() - start))
+        print('Pre-process...' )
         delta = int(self.minibatch_thresh / self.dt)
         if delta >= self.signal_size:
-            self._detect_spikes()
+            self._detect_spikes(use_filtered, select_clust=spike_detection_dir, align_to=align_spikes_to)
         else:
             self._detect_spikes_minibatch(use_filtered, select_clust=spike_detection_dir, align_to=align_spikes_to)
+    
+    def run(self, use_filtered=True, remove_overlap=True,
+            spike_detection_dir='min', align_spikes_to='min'):
+        start = time.time()
+        self.run_spike_detection(use_filtered, remove_overlap,
+                spike_detection_dir, align_spikes_to)
         print('Spike detection time = {}'.format(time.time() - start))
-        self._align_spikes(remove_align_overlaps=remove_overlap)
+        start = time.time()
+        self._align_spikes(use_filtered = use_filtered, remove_align_overlaps=remove_overlap)
         print('Align spikes time = {}'.format(time.time() - start))
-        self._detect_cs_minibatch(remove_overlaps = remove_overlap)
+        start = time.time()
+        self._detect_cs_minibatch(batch_size=100)
         print('CS spike detection time = {}'.format(time.time() - start))
+        start = time.time()
         self.cs_indices = self._remove_overlapping_complex_spikes()
-        #self._realign_complex_spikes()
+        #self._realign_complex_spikes(pre = 0.0019, post = 0.002)
         #self._cs_post_process()
         print('CS post process time = {}'.format(time.time() - start))
-
     
     def _init_gmm(self):
         self.gmm = GaussianMixture(self.num_gmm_components,
@@ -66,53 +73,57 @@ class ComplexSpikeSorter:
         
         self.cs_gmm = GaussianMixture(self.cs_num_gmm_components,
                 covariance_type = self.cs_cov_type, random_state=0, warm_start=True)
+   
     def _pre_process(self):
         """
         Pre-processing on the input voltage signal:
         Apply zero-phase linear filter
         """
         self.voltage_filtered = np.copy(self.voltage)
-        #[b, a] = scipy.signal.filter_design.butter(self.filter_order,
-        #                [2 * self.dt * self.high_pass_filter_cutoff, 2 * self.dt * self.low_pass_filter_cutoff],
-        #                                       btype='bandpass')
-        #self.voltage_filtered = scipy.signal.lfilter(b, a, self.voltage_filtered)  # Filter forwards
-        #self.voltage_filtered = np.flipud(self.voltage_filtered)
-        #self.voltage_filtered = scipy.signal.lfilter(b, a, self.voltage_filtered)  # Filter reverse
-        #self.voltage_filtered = np.flipud(self.voltage_filtered)
         self.voltage_filtered = scipy.signal.savgol_filter(self.voltage_filtered, 5, 2, 1, self.dt)
-        #self.voltage_filt_derivative = scipy.signal.savgol_filter(self.voltage_filtered, 5, 2, 1, self.dt) 
-        #self.voltage_raw_derivative = scipy.signal.savgol_filter(self.voltage, 5, 2, 1, self.dt) 
 
-    def _detect_spikes(self):
+    def _detect_spikes(self, use_filtered, select_clust, align_to):
         """
         Preliminary spike detection using a Gaussian Mixture Model
         Second edit: changed the detected index to be the peak of the raw signal 
         in order to help with future alignment to the peak of the spike waveforms.
         """
+        if use_filtered:
+            voltage_signal = self.voltage_filtered
+        else:
+            voltage_signal = self.voltage
         self.gmm = GaussianMixture(self.num_gmm_components,
-                covariance_type = self.gmm_cov_type).fit(self.voltage_filtered.reshape(-1,1))
-        cluster_labels = self.gmm.predict(self.voltage_filtered.reshape(-1,1))
-        cluster_labels = cluster_labels.reshape(self.voltage_filtered.shape)
-        spikes_cluster = np.argmax(self.gmm.means_)
-        all_spike_indices = np.squeeze(np.where(cluster_labels == spikes_cluster))
-        # Find peaks of each spike
-        peak_times,_ = scipy.signal.find_peaks(self.voltage_filtered[all_spike_indices])
-        spike_indices = all_spike_indices[peak_times]
+                covariance_type = self.gmm_cov_type).fit(voltage_signal.reshape(-1,1))
+        cluster_labels = self.gmm.predict(voltage_signal.reshape(-1,1))
+        cluster_labels = cluster_labels.reshape(voltage_signal.shape)
+        if select_clust is 'max':
+            spikes_cluster = np.argmax(self.gmm.means_)
+            all_spike_indices = np.squeeze(np.where(cluster_labels == spikes_cluster))
+            # Find peaks of each spike
+            peak_times,_ = scipy.signal.find_peaks(voltage_signal[all_spike_indices])
+            spike_indices = all_spike_indices[peak_times]
+        elif select_clust is 'min':
+            spikes_cluster = np.argmin(self.gmm.means_)
+            all_spike_indices = np.squeeze(np.where(cluster_labels == spikes_cluster))
+            # Find peaks of each spike
+            peak_times,_ = scipy.signal.find_peaks(-1.0*voltage_signal[all_spike_indices])
+            spike_indices = all_spike_indices[peak_times]
+
         spike_peaks = np.array([np.argmin(self.voltage[max(0, si - int(0.0005/self.dt)) :
              si + int(0.002/self.dt)]) for si in spike_indices])
         self.spike_indices = spike_indices + spike_peaks - int(0.0005/self.dt)
         if self.spike_indices[0] < 0:
             self.spike_indices[0] = spike_peaks[0]
 
-
     # TODO
-    def _detect_spikes_from_range(self, prange, align_to = 'max'):
+    def _detect_spikes_from_range(self, prange, align_to):
         """
         Preliminary spike detection using a Gaussian Mixture Model, using only a range of filtered signal
         """
         peak_search_window_pre = 0.0008
         peak_search_window_post = 0.001
         voltage_signal = self.voltage_filtered[prange]
+
         signal_unfiltered = self.voltage[prange]
         #gmm = GaussianMixture(self.num_gmm_components,
         #        covariance_type = 'tied').fit(voltage_signal.reshape(-1,1))
@@ -139,11 +150,9 @@ class ComplexSpikeSorter:
                 spike_indices[0] = spike_peaks[0]
         else:
             ValueError('align_to argument should be min or max')
-
         return spike_indices
 
-
-    def _detect_spikes_from_range_raw_signal(self, prange, select_clust='max', align_to='max'):
+    def _detect_spikes_from_range_raw_signal(self, prange, select_clust, align_to):
         """
         Preliminary spike detection using a Gaussian Mixture Model, using only a range of raw signal
         """
@@ -187,13 +196,13 @@ class ComplexSpikeSorter:
 
         return spike_indices
 
-    def _detect_spikes_minibatch(self, use_filtered=True, select_clust = 'max', align_to = 'max'):
+    def _detect_spikes_minibatch(self, use_filtered, select_clust, align_to):
         """
         Loops through the entire voltage signal and detects spikes
         The loop is on each slices of the signal with size minibatch_thresh
         """
         print('Using minibatch spike detection, batch size = {}s, using filter (derivative) is {}'.format(self.minibatch_thresh, use_filtered))
-        print('Usinf spikes'' {} for detection. Aligning them to their {}. '.format(select_clust, align_to))         
+        print('Using spikes'' {} for detection. Aligning them to their {}. '.format(select_clust, align_to))         
         delta = int(self.minibatch_thresh/self.dt)
         self.spike_indices = np.array([], dtype='int64')
         for i in np.arange(0, self.voltage_filtered.size - int(10/self.dt), delta):
@@ -239,9 +248,9 @@ class ComplexSpikeSorter:
         """
         print('Merging overlapping CS waveforms')
         csiss = np.diff(self.cs_indices)
-        return np.delete(self.cs_indices, np.where(csiss < 0.0025/self.dt)[0] + 1)
+        return np.delete(self.cs_indices, np.where(csiss < 0.010/self.dt)[0] + 1)
     
-    def _realign_complex_spikes(self, pre = 0.0019, post = 0.002):
+    def _realign_complex_spikes(self, pre, post):
         """
         Here we realign the detected complex spikes to their spike peak.
         Sometimes some of the detected spike indices might become misaligned
@@ -255,7 +264,7 @@ class ComplexSpikeSorter:
             
 
 
-    def _align_spikes(self, use_filtered = False, remove_align_overlaps = True, to_exclude = []):
+    def _align_spikes(self, use_filtered, remove_align_overlaps, to_exclude = []):
         """
         Aligns the spike waveforms (from pre_window to post_windows, aligned to peak times)
         Pass to_exclude if you want to exclude from adding to the align matrix
@@ -299,10 +308,9 @@ class ComplexSpikeSorter:
         #print('time pca ', pca.explained_variance_ratio_)
         return self._pca_transform(powers, self.num_pca_components)
 
-    def _pca_transform(self, aligned_input, num_components=9):
+    def _pca_transform(self, aligned_input, num_components):
         
         from sklearn.decomposition import PCA
-        from sklearn.preprocessing import normalize
         
         pca = PCA(n_components = num_components)
         pca.fit(aligned_input)
@@ -408,7 +416,7 @@ class ComplexSpikeSorter:
         return cs_indices
 
   
-    def _detect_cs_minibatch(self, remove_overlaps=False, batch_size=240):
+    def _detect_cs_minibatch(self, batch_size):
         
         print('Clustering complex spikes...')
         slice_indices = self._slice_spike_indices(slice_length=batch_size)
@@ -437,20 +445,20 @@ class ComplexSpikeSorter:
         mask[to_delete] = False
         self.cs_indices = self.cs_indices[mask]
 
-    def _slice_spike_indices(self, slice_length = 240):
+    def _slice_spike_indices(self, slice_length):
         """
         Slicing the detected spike indices into slice_length (s) chunks and return a list
         of the indices for each chunk. Used for minibatch complex spike detection.
         """
         delta = int(slice_length/self.dt)
-        if self.signal_size > (slice_length + 120)/self.dt:
+        if self.signal_size > (slice_length + slice_length/2.0)/self.dt:
             print('Splitting detected spikes for CS clustering ...')
             slice_indices = []    
             countall = 0
             for i in np.arange(0, self.signal_size, delta):
                 slice_indices.append(np.where(np.logical_and(self.spike_indices >= i ,  self.spike_indices < i + delta))[0])
             # If the last chunk is less than 2 minutes, merge it with the penultimate chunk:
-            if slice_indices[-1].size <= 120/self.dt:
+            if slice_indices[-1].size <= (slice_length/2.0)/self.dt:
                 slice_indices[-2] = np.concatenate((slice_indices[-2], slice_indices[-1]))
                 del slice_indices[-1]
         else:

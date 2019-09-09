@@ -248,7 +248,7 @@ class ComplexSpikeSorter:
         """
         print('Merging overlapping CS waveforms')
         csiss = np.diff(self.cs_indices)
-        return np.delete(self.cs_indices, np.where(csiss < 0.010/self.dt)[0] + 1)
+        return np.delete(self.cs_indices, np.where(csiss < 0.010/self.dt)[0])
     
     def _realign_complex_spikes(self, pre, post):
         """

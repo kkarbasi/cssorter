@@ -1,6 +1,6 @@
 # CSsorter: Python package for detection and sorting of Complex Spikes
 [![DockerHub](https://img.shields.io/docker/pulls/kkarbasi/cssorter.svg)](https://hub.docker.com/r/kkarbasi/cssorter)
-[![DockerHub](https://img.shields.io/docker/build/kkarbasi/cssorter.svg)](https://hub.docker.com/r/kkarbasi/cssorter)
+[![DockerHub](https://img.shields.io/docker/cloud/build/kkarbasi/cssorter.svg)](https://hub.docker.com/r/kkarbasi/cssorter)
 
 ## System requirements:
 The only requirement is having Docker installed on your machine.

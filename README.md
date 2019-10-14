@@ -19,7 +19,7 @@ The `/run/dmount` path inside the Docker container with be mounted to `/path/to/
 
 For more information on using docker containers see [here](https://docs.docker.com/)
 
-### Using pip command:
+### Using pip command (comming soon!):
 
 Installing the package:
 `pip install cssorter`
@@ -29,23 +29,25 @@ Assuming the voltage signal is loaded in a numpy vector named `voltage` and the 
 
 `from cssorter.spikesorter import ComplexSpikeSorter`
 `css = ComplexSpikeSorter(voltage, 1.0/Fs)`
+
 `css.run()`
 
 
 ## Adjustable parameters
 
-`css.num_gmm_components`: deafault=5; for noisy data use larger numbers 
+`css.num_gmm_components`: default=5; for noisy data use larger numbers 
+
 `css.cs_num_gmm_components`: default=5;
 
 The voltage window in which we check for CS signature. If the cell is very high frequeny, use shorter post_window
-*`css.pre_window`: default=0.0002 seconds; 
-*`css.post_window`: default=0.005 seconds;
+* `css.pre_window`: default=0.0002 seconds; 
+* `css.post_window`: default=0.005 seconds;
 
 `css.run() arguments`:
 
-*`use_filtered = (True/False)`: If set to True, spike detection is performed on filtered(Sav-Golay) data.
-*`spike_detection_dir = ('min'/'max')`: The direction towards which the adaptive spike detector should look for spikes.
-*`align_spikes_to = ('min'/'max')`: If set to 'min' ('max') spikes are aligned to their minimum (maximum).
-*`remove_overlaps = (True/False)`
+* `use_filtered = (True/False)`: If set to True, spike detection is performed on filtered(Sav-Golay) data.
+* `spike_detection_dir = ('min'/'max')`: The direction towards which the adaptive spike detector should look for spikes.
+* `align_spikes_to = ('min'/'max')`: If set to 'min' ('max') spikes are aligned to their minimum (maximum).
+* `remove_overlaps = (True/False)`
 
 

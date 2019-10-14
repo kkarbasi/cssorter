@@ -1,5 +1,5 @@
 """
-Copyright (c) 2019 Laboratory for Computational Motor Control, Johns Hopkins School of Medicine
+Laboratory for Computational Motor Control, Johns Hopkins School of Medicine
 
 Author: Kaveh Karbasi <kkarbasi@berkeley.edu>
 """

@@ -33,6 +33,20 @@ def closest_argmin(A, B):
     ((np.abs(A - sorted_B[sorted_idx-1]) < np.abs(A - sorted_B[sorted_idx])) )
     return sidx_B[sorted_idx-mask]
 
+def find_files_regex(search_path, regex):
+    """
+    Finds files whose name matches the regular expression regex
+    """
+    import re
+    found_fnames = []
+    for root, dirnames, filenames in os.walk(search_path):
+        for filename in filenames:
+            f_regex = re.compile(regex)
+            if f_regex.match(filename):
+                found_fnames = found_fnames + [os.path.join(root, filename)]
+
+    return found_fnames
+
 def find_file(name, path):
     """
     Finds file name in path

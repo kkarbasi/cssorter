@@ -12,7 +12,7 @@ List of the required python packages that the code uses are in [requirements.txt
 You can readily use this package from it's docker image. To download and run the CSsorter docker, use the following command:
 `docker run -it -p 8888:8888 --name cs_sorter -v /path/to/local/dir:/run/dmount:z kkarbasi/cssorter`
 
-After running the above command, you can access a Jupyter notebook with sample run code from your browser at:
+After running the above command, you can access a Jupyter notebook with sample run code (`get_started`) from your browser at:
 `http://127.0.0.1:8888`
 
 The `/run/dmount` path inside the Docker container will be mounted to `/path/to/local/dir` on your local machine

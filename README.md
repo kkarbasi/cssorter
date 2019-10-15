@@ -1,4 +1,4 @@
-# CSsorter: Python package for detection and sorting of Complex Spikes
+# CSsorter: Python package for unsupervised detection of Complex Spikes
 [![DockerHub](https://img.shields.io/docker/pulls/kkarbasi/cssorter.svg)](https://hub.docker.com/r/kkarbasi/cssorter)
 [![DockerHub](https://img.shields.io/docker/cloud/build/kkarbasi/cssorter.svg)](https://hub.docker.com/r/kkarbasi/cssorter)
 

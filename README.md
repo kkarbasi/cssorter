@@ -10,7 +10,9 @@ If you want to use it without Docker, list of the required python packages that 
 ## Installation
 
 ### Using Docker:
-You can readily use this package from it's docker image. To download and run the CSsorter docker, use the following command:
+
+This is the quickest way to get this code to run. You can readily use this package from it's docker image. To download and run the CSsorter docker, use the following command:
+
 `docker run -it -p 8888:8888 --name cs_sorter -v /path/to/local/dir:/run/dmount:z kkarbasi/cssorter`
 
 After running the above command, you can access a Jupyter notebook with sample run code (`get_started`) from your browser at:
@@ -20,15 +22,21 @@ The `/run/dmount` path inside the Docker container will be mounted to `/path/to/
 
 For more information on using docker containers see [here](https://docs.docker.com/)
 
-### Using pip command (comming soon!):
+### Without Docker:
 
-Installing the package:
-`pip install cssorter`
- 
-Then use it as follows:
+clone the repository: `git clone https://github.com/kkarbasi/cssorter.git`
+
+Installing the packages:
+`pip3 install --no-cache-dir -r requirements.txt`
+
+Then follow the instructions on the `get_started` Jupyter notebook to run it on the provided sample data or your own data.
+
+If you want to use it in your own Python script:
+
 Assuming the voltage signal is loaded in a numpy vector named `voltage` and the sampling frequency is in `Fs`
 
 `from cssorter.spikesorter import ComplexSpikeSorter`
+
 `css = ComplexSpikeSorter(voltage, 1.0/Fs)`
 
 `css.run()`
@@ -41,6 +49,7 @@ Assuming the voltage signal is loaded in a numpy vector named `voltage` and the 
 `css.cs_num_gmm_components`: default=5;
 
 The voltage window in which we check for CS signature. If the cell is very high frequeny, use shorter post_window
+
 * `css.pre_window`: default=0.0002 seconds; 
 * `css.post_window`: default=0.005 seconds;
 

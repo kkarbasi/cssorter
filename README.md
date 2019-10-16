@@ -4,7 +4,8 @@
 
 ## System requirements:
 The only requirement is having Docker installed on your machine.
-List of the required python packages that the code uses are in [requirements.txt](https://github.com/kkarbasi/cssorter/blob/master/requirements.txt)
+
+If you want to use it without Docker, list of the required python packages that the code uses are in [requirements.txt](https://github.com/kkarbasi/cssorter/blob/master/requirements.txt)
 
 ## Installation
 

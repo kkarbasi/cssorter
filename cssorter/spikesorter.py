@@ -37,7 +37,7 @@ class ComplexSpikeSorter:
         self.cs_cov_type = 'full'
         self.post_cs_pause_time = 0.0055 #s
         self.num_pca_components = 0.9 # If less than one, this would be the percent of explained variance 
-
+        self.cs_detection_batch_size = 100
     def run_spike_detection(self, use_filtered=True, remove_overlap=True,
             spike_detection_dir='min', align_spikes_to='min'):
         self._init_gmm()
@@ -59,7 +59,7 @@ class ComplexSpikeSorter:
         self._align_spikes(use_filtered = use_filtered, remove_align_overlaps=remove_overlap)
         print('Align spikes time = {}'.format(time.time() - start))
         start = time.time()
-        self._detect_cs_minibatch(batch_size=100)
+        self._detect_cs_minibatch(batch_size=self.cs_detection_batch_size)
         print('CS spike detection time = {}'.format(time.time() - start))
         start = time.time()
         self.cs_indices = self._remove_overlapping_complex_spikes()

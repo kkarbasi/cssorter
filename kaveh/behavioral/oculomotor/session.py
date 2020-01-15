@@ -121,7 +121,7 @@ class session:
         # Here we delete the targets with amplitude less than 0.5 degrees
         H_target_amp = self.HT[self.target_offsets] - self.HT[self.target_onsets]
         V_target_amp = self.VT[self.target_offsets] - self.VT[self.target_onsets]
-        target_amp = np.linalg.norm(np.hstack((H_target_amp, V_target_amp)), axis = 1)
+        target_amp = np.linalg.norm(np.vstack((H_target_amp, V_target_amp)), axis = 0)
         to_delete = []
 
         for i, (son, soff) in enumerate(zip(self.target_onsets, self.target_offsets)):
@@ -168,7 +168,7 @@ class session:
         # Here we delete the saccades that have more than 1 prominent peaks ( with peak height = 20)
         to_delete = []
         for i, (son, soff) in enumerate(zip(self.saccade_onsets, self.saccade_offsets)):
-            peaks = find_peaks(self.E_v_filtered[son:soff], prominence=15)[0]
+            peaks = find_peaks(self.E_v_filtered[son:soff], prominence=20)[0]
             if (np.size(peaks) > 1):
                 to_delete.append(i)
             peaks = find_peaks(self.E_v_filtered[son:soff], prominence=1)[0]
@@ -182,7 +182,7 @@ class session:
         # Here we delete the saccades with amplitude less than 0.5 degrees
         H_saccade_amp = self.HE[self.saccade_offsets] - self.HE[self.saccade_onsets]
         V_saccade_amp = self.VE[self.saccade_offsets] - self.VE[self.saccade_onsets]
-        saccade_amp = np.linalg.norm(np.hstack((H_saccade_amp, V_saccade_amp)), axis = 1)
+        saccade_amp = np.linalg.norm(np.vstack((H_saccade_amp, V_saccade_amp)), axis = 0)
         to_delete = []
 
         for i, (son, soff) in enumerate(zip(self.saccade_onsets, self.saccade_offsets)):
